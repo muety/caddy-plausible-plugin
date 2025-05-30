@@ -10,13 +10,17 @@ import (
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
 	"go.uber.org/zap"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 )
 
 const DefaultBaseUrl = "https://plausible.io"
 
+var regexStaticAssets *regexp.Regexp
+
 func init() {
+	regexStaticAssets = regexp.MustCompile(`\.(css|js|png|jpg|jpeg|gif|svg|webp|ico|bmp|tiff|mp3|mp4|avi|mov|webm|ogg|wav|flac|woff|woff2|ttf|map)$`)
 	caddy.RegisterModule(PlausiblePlugin{})
 }
 
@@ -63,6 +67,10 @@ func (m *PlausiblePlugin) ServeHTTP(w http.ResponseWriter, r *http.Request, h ca
 }
 
 func (m *PlausiblePlugin) recordEvent(r *http.Request) {
+	if regexStaticAssets.MatchString(r.URL.Path) {
+		return
+	}
+
 	event := EventPayload{
 		Name:     "pageview",
 		Url:      r.URL.RequestURI(),
@@ -83,6 +91,8 @@ func (m *PlausiblePlugin) recordEvent(r *http.Request) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", r.Header.Get("User-Agent"))
 	req.Header.Set("X-Forwarded-For", r.Header.Get("X-Forwarded-For"))
+
+	m.logger.Debug("sending plausible event", zap.String("domain", event.Domain), zap.String("url", event.Url))
 
 	res, err := m.client.Do(req)
 	if err != nil {
