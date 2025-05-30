@@ -9,6 +9,7 @@ import (
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
 	"go.uber.org/zap"
+	"net"
 	"net/http"
 	"regexp"
 	"strings"
@@ -88,14 +89,9 @@ func (m *PlausiblePlugin) recordEvent(r *http.Request) {
 		return
 	}
 
-	remoteIp := r.Header.Get("X-Forwarded-For")
-	if remoteIp == "" {
-		remoteIp = r.RemoteAddr
-	}
-
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", r.Header.Get("User-Agent"))
-	req.Header.Set("X-Forwarded-For", remoteIp)
+	req.Header.Set("X-Forwarded-For", extractIp(r))
 
 	m.logger.Debug("sending plausible event", zap.String("domain", event.Domain), zap.String("url", event.Url))
 
@@ -108,4 +104,15 @@ func (m *PlausiblePlugin) recordEvent(r *http.Request) {
 		m.logger.Error("failed to post plausible event, got unsuccessful response", zap.Int("status_code", res.StatusCode))
 		return
 	}
+}
+
+func extractIp(r *http.Request) string {
+	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
+		return ip
+	}
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err == nil {
+		return ip
+	}
+	return r.RemoteAddr
 }
