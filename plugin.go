@@ -88,9 +88,14 @@ func (m *PlausiblePlugin) recordEvent(r *http.Request) {
 		return
 	}
 
+	remoteIp := r.Header.Get("X-Forwarded-For")
+	if remoteIp == "" {
+		remoteIp = r.RemoteAddr
+	}
+
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", r.Header.Get("User-Agent"))
-	req.Header.Set("X-Forwarded-For", r.Header.Get("X-Forwarded-For"))
+	req.Header.Set("X-Forwarded-For", remoteIp)
 
 	m.logger.Debug("sending plausible event", zap.String("domain", event.Domain), zap.String("url", event.Url))
 
