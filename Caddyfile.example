@@ -1,0 +1,18 @@
+{
+    order plausible before file_server
+}
+
+http://localhost:8080 {
+    root /tmp/html
+
+    @foo path /foo
+
+    route {
+        plausible {
+            domain_name muetsch.io
+            base_url https://plausible.io
+        }
+        respond @foo "Foo" 200
+        file_server
+    }
+}

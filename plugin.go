@@ -9,7 +9,6 @@ import (
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
 	"go.uber.org/zap"
-	"net"
 	"net/http"
 	"regexp"
 	"strings"
@@ -63,13 +62,21 @@ func (m *PlausiblePlugin) Provision(ctx caddy.Context) error {
 }
 
 func (m *PlausiblePlugin) ServeHTTP(w http.ResponseWriter, r *http.Request, h caddyhttp.Handler) error {
-	go m.recordEvent(r.Clone(context.TODO()))
-	return h.ServeHTTP(w, r)
+	rw := &responseWriter{ResponseWriter: w}
+	if err := h.ServeHTTP(rw, r); err != nil {
+		return err
+	}
+	go m.recordEvent(r.Clone(context.TODO()), rw.statusCode)
+	return nil
 }
 
-func (m *PlausiblePlugin) recordEvent(r *http.Request) {
+func (m *PlausiblePlugin) recordEvent(r *http.Request, status int) {
+	if status >= 400 {
+		return // don't record events for error statuses
+	}
+
 	if regexStaticAssets.MatchString(r.URL.Path) {
-		return
+		return // don't record typical static web assets like css, js, fonts, images and other media
 	}
 
 	event := EventPayload{
@@ -104,15 +111,4 @@ func (m *PlausiblePlugin) recordEvent(r *http.Request) {
 		m.logger.Error("failed to post plausible event, got unsuccessful response", zap.Int("status_code", res.StatusCode))
 		return
 	}
-}
-
-func extractIp(r *http.Request) string {
-	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
-		return ip
-	}
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err == nil {
-		return ip
-	}
-	return r.RemoteAddr
 }
