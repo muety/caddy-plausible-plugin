@@ -6,13 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/caddyserver/caddy/v2"
-	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
-	"go.uber.org/zap"
 	"net/http"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/caddyserver/caddy/v2"
+	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
+	"go.uber.org/zap"
 )
 
 const DefaultBaseUrl = "https://plausible.io"
@@ -63,10 +64,11 @@ func (m *PlausiblePlugin) Provision(ctx caddy.Context) error {
 
 func (m *PlausiblePlugin) ServeHTTP(w http.ResponseWriter, r *http.Request, h caddyhttp.Handler) error {
 	rw := &responseWriter{ResponseWriter: w}
+	req := r.Clone(context.TODO()) // request might be modified by subsequent middleware (e.g. php_fastcgi)
 	if err := h.ServeHTTP(rw, r); err != nil {
 		return err
 	}
-	go m.recordEvent(r.Clone(context.TODO()), rw.statusCode)
+	go m.recordEvent(req, rw.statusCode)
 	return nil
 }
 
