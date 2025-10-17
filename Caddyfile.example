@@ -1,5 +1,6 @@
 {
     order plausible before file_server
+    order plausible before reverse_proxy
 }
 
 http://localhost:8080 {

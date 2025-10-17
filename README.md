@@ -18,6 +18,7 @@ Because this directive does not come standard with Caddy, you need to [put the d
 ```
 {
 	order plausible before file_server
+    order plausible before reverse_proxy
 }
 ```
 
